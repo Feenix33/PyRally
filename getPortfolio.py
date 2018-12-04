@@ -23,8 +23,15 @@ gFields = [ #"FormattedID",
         ]
 
 # mmmxxx
+def FormRecordTeamFeature(tf):
+    outrows = [["TF", tf.FormattedID, "" ] + [returnAttrib(tf, field, default="") for field in gFields]]
+    if hasattr(tf, "UserStories"):
+        for us in tf.UserStories:
+            outrows += [["US", tf.FormattedID ] + FormRecordUserStory(us)]
+    return outrows
+
 def FormRecordUserStory(us):
-    outrow = ["US", us.FormattedID  ] + \
+    outrow = [us.FormattedID  ] + \
         [returnAttrib(us, field, default="") for field in gFields]
     return outrow
 
@@ -103,47 +110,36 @@ def main(args):
     if bPrintStatus: print ('Logging in...')
     rally = Rally(server, apikey=apikey, workspace=workspace, project=project)
 
-    for arg in args:
-        if arg[0] == "U":
-            entityName = 'HierarchicalRequirement'
-        else:
-            entityName = 'PortfolioItem'
+    fileName = 'GetP.csv'
+    if bPrintStatus: print ("Printing to '%s'" % fileName)
+    with open (fileName, 'w', newline='') as csvfile:
+        #write header
+        outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        #outrows = [["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + [field for field in gFields]]
+        outrows = [["Type", "TF.ID", "US.ID"] + [field for field in gFields]]
+        #outfile.writerow(outrow)
 
-        #queryString = 'FormattedID = "PGM362"'
-        queryString = 'FormattedID = "' + arg + '"'
-        if bPrintStatus: print ("queryString: ", queryString)
+        for arg in args:
+            if arg[0] == "U":
+                entityName = 'HierarchicalRequirement'
+            else:
+                entityName = 'PortfolioItem'
 
-        response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
+            #queryString = 'FormattedID = "PGM362"'
+            queryString = 'FormattedID = "' + arg + '"'
+            if bPrintStatus: print ("queryString: ", entityName, queryString)
 
-        if response.resultCount == 0:
-            errout('No item found for %s %s\n' % (entityName, arg))
-        else:
-            fileName = 'GetP.csv'
-            if bPrintStatus: print ("Printing to '%s'" % fileName)
-            with open (fileName, 'w', newline='') as csvfile:
-                #write header
-                outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
-                            [field for field in gFields]
-                outfile.writerow(outrow)
+            response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
 
+            if response.resultCount == 0:
+                errout('No item found for %s %s\n' % (entityName, arg))
+            else:
                 for resp in response:
-                    print ("resp.FormattedID[:3] ", resp.FormattedID[:3])
-                    if resp.FormattedID[:3] == "PGM":
-                        print ("Processing PGM")
-                        ProcessPrograms(resp, outfile)
-                    elif resp.FormattedID[:3] == "PRJ":
-                        print ("Processing PRJ")
-                        ProcessProjects(resp, outfile)
-                    elif resp.FormattedID[:3] == "FEA":
-                        print ("Processing FEA")
-                        ProcessFeatures("", resp, outfile)
-                    elif resp.FormattedID[:2] == "TF":
-                        print ("Processing TF")
-                        ProcessTeamFeatures("", "", resp, outfile)
+                    if resp.FormattedID[:2] == "TF":
+                        outrows += FormRecordTeamFeature(resp)
                     elif resp.FormattedID[:2] == "US":
-                        print ("Processing US")
-                        ProcessUserStories("", "", "", resp, outfile)
+                        outrows += [["US"] + FormRecordUserStory(resp)]
+        outfile.writerows(outrows)
 
 
 if __name__ == '__main__':
