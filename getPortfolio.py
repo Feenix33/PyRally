@@ -22,6 +22,54 @@ gFields = [ #"FormattedID",
         "AcceptedLeafStoryPlanEstimateTotal",
         ]
 
+# mmmxxx
+def FormRecordUserStory(us):
+    outrow = ["US", us.FormattedID  ] + \
+        [returnAttrib(us, field, default="") for field in gFields]
+    return outrow
+
+def ProcessPrograms(pgm, outfile):
+    outrow = ["PGM", pgm.FormattedID, "","",  "", "" ] + \
+        [returnAttrib(pgm, field, default="") for field in gFields]
+    outfile.writerow(outrow)
+    if hasattr(pgm, "Children"):
+        ProcessProjects(pgm, outfile)
+
+def ProcessProjects(pgm, outfile):
+    for prj in pgm.Children:
+        outrow = ["PRJ", pgm.FormattedID, prj.FormattedID, "", "", "" ] + \
+            [returnAttrib(prj, field, default="") for field in gFields]
+        outfile.writerow(outrow)
+        if hasattr(prj, "Children"):
+            ProcessFeatures(pgm.FormattedID, prj, outfile)
+
+
+def ProcessFeatures(pgmFormattedID, prj, outfile):
+    for fea in prj.Children:
+        outrow = ["FEA", pgmFormattedID, prj.FormattedID, fea.FormattedID, "", "" ] + \
+            [returnAttrib(fea, field, default="") for field in gFields]
+        outfile.writerow(outrow)
+        if hasattr(fea, "Children"):
+            ProcessTeamFeatures(pgmFormattedID, prj.FormattedID, fea, outfile)
+
+
+def ProcessTeamFeatures(pgmFormattedID, prjFormattedID, fea, outfile):
+    if hasattr(fea, "Children"):
+        for tf in fea.Children:
+            outrow = ["TF", pgmFormattedID, prjFormattedID, fea.FormattedID, tf.FormattedID, "" ] + \
+                [returnAttrib(tf, field, default="") for field in gFields]
+            outfile.writerow(outrow)
+            if hasattr(tf, "UserStories"):
+                ProcessUserStories(pgmFormattedID, prjFormattedID, fea.FormattedID, tf, outfile)
+
+
+def ProcessUserStories(pgmFormattedID, prjFormattedID, feaFormattedID, tf, outfile):
+    for us in tf.UserStories:
+        outrow = ["US", pgmFormattedID, prjFormattedID, feaFormattedID, tf.FormattedID,  us.FormattedID  ] + \
+            [returnAttrib(us, field, default="") for field in gFields]
+        outfile.writerow(outrow)
+
+
 def returnAttrib(item, attr, default=""):
     locAttr = attr.split('.')
     if len(locAttr) == 1:
@@ -41,74 +89,61 @@ def main(args):
     #    printHelp()
     #    sys.exit(3)
 
+    bPrintStatus = True
+    if bPrintStatus: print ("options: ", options)
+    if bPrintStatus: print ("args:    ", args)
+
+    # Rally Settings
     server = 'rally1.rallydev.com'
-    apikey = '_LhzUHJ1GQJQWkEYepqIJV9NO96FkErDpQvmHG4WQ'
+    apikey = '_LhzUHJ1GQJQWkEYepqIJV9NO96FkErDpQvmHG4WQ'  # tied to cme
     workspace = 'Sabre Production Workspace'
     project = 'Sabre' 
 
-    bPrintStatus = True
 
     if bPrintStatus: print ('Logging in...')
     rally = Rally(server, apikey=apikey, workspace=workspace, project=project)
 
-    if bPrintStatus: print ('Query execution...')
+    for arg in args:
+        if arg[0] == "U":
+            entityName = 'HierarchicalRequirement'
+        else:
+            entityName = 'PortfolioItem'
 
-    #for arg in args:
-    #    if arg[0] == "D":
-    #        entityName = 'Defect'
-    #    elif arg[0] == "U":
-    #        entityName = 'HierarchicalRequirement'
-    #    else:
-    #        entityName = 'PortfolioItem'
+        #queryString = 'FormattedID = "PGM362"'
+        queryString = 'FormattedID = "' + arg + '"'
+        if bPrintStatus: print ("queryString: ", queryString)
 
-    queryString = 'FormattedID = "PGM362"'
-    entityName = 'PortfolioItem'
+        response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
 
-    if bPrintStatus: print ("Query = ", queryString)
+        if response.resultCount == 0:
+            errout('No item found for %s %s\n' % (entityName, arg))
+        else:
+            fileName = 'GetP.csv'
+            if bPrintStatus: print ("Printing to '%s'" % fileName)
+            with open (fileName, 'w', newline='') as csvfile:
+                #write header
+                outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
+                            [field for field in gFields]
+                outfile.writerow(outrow)
 
-    response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
-
-    if response.resultCount == 0:
-        errout('No item found for %s %s\n' % (entityName, arg))
-    else:
-        fileName = 'PGM362.csv'
-        if bPrintStatus: print ("Printing to '%s'" % fileName)
-        with open (fileName, 'w', newline='') as csvfile:
-            #write header
-            outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
-                        [field for field in gFields]
-            outfile.writerow(outrow)
-
-            for pgm in response:
-                if pgm.FormattedID[:3] == "PGM":
-                    outrow = ["PGM", pgm.FormattedID, "","",  "", "" ] + \
-                        [returnAttrib(pgm, field, default="") for field in gFields]
-                    outfile.writerow(outrow)
-
-                    if hasattr(pgm, "Children"):
-                        for prj in pgm.Children:
-                            outrow = ["PRJ", pgm.FormattedID, prj.FormattedID, "", "", "" ] + \
-                                [returnAttrib(prj, field, default="") for field in gFields]
-                            outfile.writerow(outrow)
-
-                            if hasattr(prj, "Children"):
-                                for fea in prj.Children:
-                                    outrow = ["FEA", pgm.FormattedID, prj.FormattedID, fea.FormattedID, "", "" ] + \
-                                        [returnAttrib(fea, field, default="") for field in gFields]
-                                    outfile.writerow(outrow)
-
-                                    if hasattr(fea, "Children"):
-                                        for tf in fea.Children:
-                                            outrow = ["TF", pgm.FormattedID, prj.FormattedID, fea.FormattedID, tf.FormattedID, "" ] + \
-                                                [returnAttrib(tf, field, default="") for field in gFields]
-                                            outfile.writerow(outrow)
-
-                                            if hasattr(tf, "UserStories"):
-                                                for us in tf.UserStories:
-                                                    outrow = ["US", pgm.FormattedID, prj.FormattedID, fea.FormattedID, tf.FormattedID,  us.FormattedID  ] + \
-                                                        [returnAttrib(us, field, default="") for field in gFields]
-                                                    outfile.writerow(outrow)
+                for resp in response:
+                    print ("resp.FormattedID[:3] ", resp.FormattedID[:3])
+                    if resp.FormattedID[:3] == "PGM":
+                        print ("Processing PGM")
+                        ProcessPrograms(resp, outfile)
+                    elif resp.FormattedID[:3] == "PRJ":
+                        print ("Processing PRJ")
+                        ProcessProjects(resp, outfile)
+                    elif resp.FormattedID[:3] == "FEA":
+                        print ("Processing FEA")
+                        ProcessFeatures("", resp, outfile)
+                    elif resp.FormattedID[:2] == "TF":
+                        print ("Processing TF")
+                        ProcessTeamFeatures("", "", resp, outfile)
+                    elif resp.FormattedID[:2] == "US":
+                        print ("Processing US")
+                        ProcessUserStories("", "", "", resp, outfile)
 
 
 if __name__ == '__main__':
