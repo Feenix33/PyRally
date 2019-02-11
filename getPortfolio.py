@@ -1,10 +1,26 @@
 from pyral import Rally, rallySettings, rallyWorkset
+import pyral
 import sys
 import csv
 
 
 """
 Get the whole tree for PGM362-> 13 PRJs -> FEA -> TF -> US
+
+Types from the response after looping around
+args = ["US521214", "TF33115", "FEA9994", "PRJ6027"]
+
+US521214 response.count=1
+US521214 <class 'pyral.entity.HierarchicalRequirement'>
+TF33115 response.count=1
+TF33115 <class 'pyral.entity.PortfolioItem_TeamFeature'>
+FEA9994 response.count=2
+FEA9994 <class 'pyral.entity.PortfolioItem_TeamFeature'>
+FEA9994 <class 'pyral.entity.PortfolioItem_PPMFeature'>
+PRJ6027 response.count=2
+PRJ6027 <class 'pyral.entity.PortfolioItem_PPMFeature'>
+PRJ6027 <class 'pyral.entity.PortfolioItem_PPMProject'>
+
 """
 
 errout = sys.stderr.write
@@ -23,6 +39,13 @@ gFields = [ #"FormattedID",
         ]
 
 # mmmxxx
+def FormRecordFeatures(fea):
+    outrows = [["FEA", fea.FormattedID] + [returnAttrib(fea, field, default="") for field in gFields]]
+    if hasattr(fea, "Children"):
+        for tf in fea.Children:
+            outrows += [["TF", tf.FormattedID ] + FormRecordTeamFeature(tf)]
+    return outrows
+
 def FormRecordTeamFeature(tf):
     outrows = [["TF", tf.FormattedID, "" ] + [returnAttrib(tf, field, default="") for field in gFields]]
     if hasattr(tf, "UserStories"):
@@ -95,6 +118,8 @@ def main(args):
     #    errout('ERROR: Wrong number of arguments\n')
     #    printHelp()
     #    sys.exit(3)
+    #args = ["US521214", "TF33115", "FEA9994", "PRJ6027"]
+    args = ["FEA20323"]
 
     bPrintStatus = True
     if bPrintStatus: print ("options: ", options)
@@ -135,10 +160,15 @@ def main(args):
                 errout('No item found for %s %s\n' % (entityName, arg))
             else:
                 for resp in response:
-                    if resp.FormattedID[:2] == "TF":
-                        outrows += FormRecordTeamFeature(resp)
-                    elif resp.FormattedID[:2] == "US":
-                        outrows += [["US"] + FormRecordUserStory(resp)]
+                    if resp.FormattedID == arg:
+                        if resp.FormattedID[:3] == "FEA":
+                            outrows += FormRecordFeatures(resp)
+                        if resp.FormattedID[:2] == "TF":
+                            outrows += FormRecordTeamFeature(resp)
+                        elif resp.FormattedID[:2] == "US":
+                            outrows += [["US", ""] + FormRecordUserStory(resp)]
+                    """
+                    """
         outfile.writerows(outrows)
 
 
