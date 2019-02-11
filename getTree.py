@@ -45,7 +45,7 @@ def printHelp():
 def main(args):
     options = [opt for opt in args if opt.startswith('-')]
     args    = [arg for arg in args if arg not in options]
-    if len(args) != 1:
+    if len(args) < 1:
         errout('ERROR: Wrong number of arguments\n')
         printHelp()
         sys.exit(3)
@@ -54,11 +54,25 @@ def main(args):
     apikey = '_LhzUHJ1GQJQWkEYepqIJV9NO96FkErDpQvmHG4WQ'
     workspace = 'Sabre Production Workspace'
     project = 'Sabre' 
+    rally = Rally(server, apikey=apikey, workspace=workspace, project=project)
 
     bPrintStatus = True
+    fileName = 'out.csv'
 
-    # form the query
-    queryToken = args[0].upper()  #only search first one for now
+    with open (fileName, 'w', newline='', encoding="utf-8") as csvfile:
+        #write header
+        outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
+                    [field for field in gFields]
+        outfile.writerow(outrow)
+
+        for token in args:
+            processQueryTokens(rally, bPrintStatus, outfile, token)
+
+
+
+def processQueryTokens(rally, bPrintStatus, outfile, token):
+    queryToken = token.upper()  #only search first one for now
     if queryToken[0] == "D":
         entityName = 'Defect'
     elif queryToken[0] == "U":
@@ -67,13 +81,8 @@ def main(args):
         entityName = 'PortfolioItem'
 
     queryString = 'FormattedID = "' + queryToken + '"'
-    fileName = queryToken + '.csv'
-    fileName = 'out.csv'
 
-    if bPrintStatus: print ("Query = ", queryString, fileName)
-
-    if bPrintStatus: print ('Logging in...')
-    rally = Rally(server, apikey=apikey, workspace=workspace, project=project)
+    if bPrintStatus: print ("Query = ", queryString)
 
     response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
 
@@ -81,25 +90,18 @@ def main(args):
         errout('No item found for %s %s\n' % (entityName, arg))
         print ("Nothing")
     else:
-        if bPrintStatus: print ("Printing to '%s'" % fileName)
-        with open (fileName, 'w', newline='', encoding="utf-8") as csvfile:
-            #write header
-            outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
-                        [field for field in gFields]
-            outfile.writerow(outrow)
-
-            for item in response:
-                if queryToken[:2] == "PG":
-                    processPGM(outfile, item)
-                elif queryToken[:2] == "PR":
-                    processPRJ(outfile, "", item)
-                elif queryToken[:2] == "FE":
-                    processFEA(outfile, "", "", item)
-                elif queryToken[:2] == "TF":
-                    processTF(outfile, "", "", "", item)
-                elif queryToken[:2] == "US":
-                    processUS(outfile, "", "", "", "", item)
+        #if bPrintStatus: print ("Printing to '%s'" % fileName)
+        for item in response:
+            if queryToken[:2] == "PG":
+                processPGM(outfile, item)
+            elif queryToken[:2] == "PR":
+                processPRJ(outfile, "", item)
+            elif queryToken[:2] == "FE":
+                processFEA(outfile, "", "", item)
+            elif queryToken[:2] == "TF":
+                processTF(outfile, "", "", "", item)
+            elif queryToken[:2] == "US":
+                processUS(outfile, "", "", "", "", item)
 
 
 def processPGM(outfile, pgm):
@@ -143,3 +145,51 @@ def processUS(outfile, pgmID, prjID, feaID, tfID, us):
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+
+
+
+
+"""
+    # form the query
+    queryToken = args[0].upper()  #only search first one for now
+    if queryToken[0] == "D":
+        entityName = 'Defect'
+    elif queryToken[0] == "U":
+        entityName = 'HierarchicalRequirement'
+    else:
+        entityName = 'PortfolioItem'
+
+    queryString = 'FormattedID = "' + queryToken + '"'
+    fileName = 'out.csv'
+
+    if bPrintStatus: print ("Query = ", queryString, fileName)
+
+    if bPrintStatus: print ('Logging in...')
+    rally = Rally(server, apikey=apikey, workspace=workspace, project=project)
+
+    response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
+
+    if response.resultCount == 0:
+        errout('No item found for %s %s\n' % (entityName, arg))
+        print ("Nothing")
+    else:
+        if bPrintStatus: print ("Printing to '%s'" % fileName)
+        with open (fileName, 'w', newline='', encoding="utf-8") as csvfile:
+            #write header
+            outfile = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            outrow = ["Type", "PGM", "PRJ", "FEA.ID", "TF.ID", "US.ID"] + \
+                        [field for field in gFields]
+            outfile.writerow(outrow)
+
+            for item in response:
+                if queryToken[:2] == "PG":
+                    processPGM(outfile, item)
+                elif queryToken[:2] == "PR":
+                    processPRJ(outfile, "", item)
+                elif queryToken[:2] == "FE":
+                    processFEA(outfile, "", "", item)
+                elif queryToken[:2] == "TF":
+                    processTF(outfile, "", "", "", item)
+                elif queryToken[:2] == "US":
+                    processUS(outfile, "", "", "", "", item)
+"""
