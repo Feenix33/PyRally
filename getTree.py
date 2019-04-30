@@ -39,7 +39,10 @@ def returnAttrib(item, attr, default=""):
 
 def printHelp():
     print ("USAGE: program <Search Token>")
-    print ("    -h    Help")
+    print ("    -h        Help")
+    print ("    -o[Name]  OutputName")
+    print ("    -tf       Stop at Team Feature")
+    print ("    -us       Stop at User Stories")
             
 
 def main(args):
@@ -101,13 +104,13 @@ def processQueryTokens(rally, bPrintStatus, outfile, token):
 
     queryString = 'FormattedID = "' + queryToken + '"'
 
-    if bPrintStatus: print ("Query = ", queryString)
+    #if bPrintStatus: print ("Query = ", queryString)
 
     response = rally.get(entityName, fetch=True, projectScopeDown=True, query=queryString)
 
     if response.resultCount == 0:
         errout('No item found for %s %s\n' % (entityName, arg))
-        print ("Nothing")
+
     else:
         #if bPrintStatus: print ("Printing to '%s'" % fileName)
         for item in response:
