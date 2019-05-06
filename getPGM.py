@@ -6,7 +6,17 @@ import csv
 """
 getPGM.py
 From the list of the inputs, get the parents until you get to the PGM level or a dead end
+
 Structure in Rally
+    PGM PRJ FEA TF US
+
+Output is queried, parent ID, parent Name
+
+To Do:
+    Keep a list of done parents and skip if done
+    Put None if dead end
+    Build the list so the children and parents line up PGM PRJ etc
+
 """
 
 #Globals
